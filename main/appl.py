@@ -122,9 +122,7 @@ class DHT_BME280:
  
 def application(u_config): 
     no_debug()
-    ota_last_check = 0
-
-    print("New application")
+    ota_next_check = 0
 
     # blue LED pin
     try:
@@ -291,12 +289,12 @@ def application(u_config):
                 time_to_reach = time.ticks_add(wakeup_period*1000, start_loop)
 
                 # check new version every few minutes
-                time_to_check = time.ticks_add(ota_last_check, OTA_CHECK_PERIOD*1000)
-                if time.ticks_ms() > time_to_check:
-                    ota_last_check = time.ticks_ms()
+                if time.ticks_ms() > ota_next_check:
+                    ota_next_check = time.ticks_add(time.ticks_ms(), OTA_CHECK_PERIOD*1000)
                     # check new version
                     o=OTAUpdater('https://github.com/nicolasfala1se/esp_temp_sensor')
                     if o.check_for_update_to_install_during_next_reboot():
+                        print('rebooting...')
                         machine.reset()
 
                 # while we don't reach that time
