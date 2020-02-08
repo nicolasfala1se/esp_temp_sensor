@@ -124,6 +124,8 @@ def application(u_config):
     no_debug()
     ota_last_check = 0
 
+    print("New application")
+    
     # blue LED pin
     try:
         led_pin = int(u_config['LED_PIN'])
