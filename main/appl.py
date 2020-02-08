@@ -125,7 +125,7 @@ def application(u_config):
     ota_last_check = 0
 
     print("New application")
-    
+
     # blue LED pin
     try:
         led_pin = int(u_config['LED_PIN'])
@@ -296,7 +296,8 @@ def application(u_config):
                     ota_last_check = time.ticks_ms()
                     # check new version
                     o=OTAUpdater('https://github.com/nicolasfala1se/esp_temp_sensor')
-                    o.check_for_update_to_install_during_next_reboot()
+                    if o.check_for_update_to_install_during_next_reboot():
+                        machine.reset()
 
                 # while we don't reach that time
                 current_time = time.ticks_ms()
