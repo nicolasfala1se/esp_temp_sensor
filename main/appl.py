@@ -28,6 +28,8 @@ DEFAULT_LED_PIN = 0
 DEFAULT_DHT_TYPE = "DHT22"
 DEFAULT_DEEPSLEEP_MODE = "DISABLE"
 
+OTA_CHECK_PERIOD = 300  # check every 5 minutes
+
 debug_mode = "0" 
 
 def no_debug():
@@ -120,6 +122,7 @@ class DHT_BME280:
  
 def application(u_config): 
     no_debug()
+    ota_last_check = 0
 
     # blue LED pin
     try:
@@ -208,7 +211,7 @@ def application(u_config):
             c.connect()
         except:
             print ("unable to connect to server")
-            
+
         # wait 2 second before reading sensor 
         wait_time = 2000
         current_time = time.ticks_ms()
@@ -262,10 +265,6 @@ def application(u_config):
                 # increment counter
                 main_state['ST_CNT']=str(int(main_state['ST_CNT'])+1)
 
-            # check new version every few minutes
-            o=OTAUpdater('https://github.com/nicolasfala1se/esp_temp_sensor')
-            o.check_for_update_to_install_during_next_reboot()
-
             if deepsleep_mode == 'ENABLE':
                 
                 # save main_state in rtc memory
@@ -288,6 +287,14 @@ def application(u_config):
 
                 # compute next time to run
                 time_to_reach = time.ticks_add(wakeup_period*1000, start_loop)
+
+                # check new version every few minutes
+                time_to_check = time.ticks_add(ota_last_check, OTA_CHECK_PERIOD*1000)
+                if time.ticks_ms() > time_to_check:
+                    ota_last_check = time.ticks_ms()
+                    # check new version
+                    o=OTAUpdater('https://github.com/nicolasfala1se/esp_temp_sensor')
+                    o.check_for_update_to_install_during_next_reboot()
 
                 # while we don't reach that time
                 current_time = time.ticks_ms()
