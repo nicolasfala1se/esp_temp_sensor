@@ -1,30 +1,42 @@
 # MQTT temperature monitor.
+from umqtt.robust import MQTTClient
+from main.ota_updater import OTAUpdater
+from main.utils import wifi_connect, wifi_disconnect, led
+from main.bme280 import BME280
 
 import machine
-import ubinascii
+import gc
+from ubinascii import hexlify
 import time
-from umqtt.robust import MQTTClient
-import network
 import ujson as json
-from main.ota_updater import OTAUpdater
-from main.utils import *
-from main.sensors import temp_sensor
 
-sw_version = "1"
-
-debug_mode_verwrite = "0"
+debug_mode_verwrite = const(1)
 
 # Default MQTT server to connect to
-CLIENT_ID = b"ESP_"+ubinascii.hexlify(machine.unique_id())
+CLIENT_ID = b"ESP_"+hexlify(machine.unique_id())
 TOPIC_TEMPERATURE = "/temperature"
 TOPIC_HUMIDITY = "/humidity"
 
 MAINSTATE_INIT = {"ST_CNT":"1"}
 
-OTA_CHECK_PERIOD = 300  # check every 5 minutes
+OTA_CHECK_PERIOD = const(60*1000)  # check every 5 minutes
 
-debug_mode = "0" 
+class DHT_BME280:
+    def __init__ (self, pin):
+        i2c = machine.I2C(scl=machine.Pin(pin+1), sda=machine.Pin(pin), freq=500000)
+        self.bme280 = BME280.BME280(i2c=i2c)
+  
+    def measure(self):
+        self.temperature_value, self.pressure_value, self.humidity_value = self.bme280.read_compensated_data()
+        
+    def humidity(self):
+        return self.humidity_value/1024
 
+    def temperature(self):
+        return self.temperature_value/100
+ 
+    def pressure(self):
+        return self.pressure_value/256/100
 
 def no_debug():
     import esp
@@ -38,31 +50,23 @@ def ota_check_for_new_version ( reboot_flag=False ):
         print('rebooting...')
         machine.reset() 
 
-
 def application(u_config): 
     no_debug()
-    ota_next_check = 0
 
-    review_u_config(u_config)
+    gc.collect()
+    # next period to check for new software
+    ota_next_check = OTA_CHECK_PERIOD
 
     # convert counters
-    wakeup_period = int(u_config['WAKEUP_PERIOD'])
+    wakeup_period = int(u_config['WAKEUP_PERIOD'])*1000
     refresh_counter = int(u_config['REFRESH_COUNTER'])
+    # BME280
+    dht_comp = DHT_BME280(int(u_config['DHT_PIN']))    
 
-    if u_config['DHT_PIN'] == DEFAULT_DHT_PIN:
-        dht_comp = temp_sensor("DUMMY_DHT",int(DEFAULT_DHT_PIN))
+    if debug_mode_verwrite != 0:
+        debug_p = True
     else:
-        dht_comp = temp_sensor(u_config['DHT_TYPE'], int(u_config['DHT_PIN']))    
-
-    if debug_mode_verwrite != "0":
-        debug_mode = debug_mode_verwrite
-    else:
-        try:
-            debug_mode = u_config['DEBUG_MODE']
-        except:
-            debug_mode = "0"
-        
-    debug_p = False if debug_mode == "0" else True
+        debug_p = False if u_config['DEBUG_MODE']=="0" else True 
 
     main_state = {}
     rtc = machine.RTC()
@@ -117,13 +121,14 @@ def application(u_config):
         if int(main_state['ST_CNT']) == refresh_counter:
             l_pin.set_on()
 
-            dht_measured=1
             try:
                 dht_comp.measure()
             except Exception as other:
                 dht_measured=0
                 print ("Dht exception:", other)
-            
+            else:
+                dht_measured=1
+
             if(dht_measured):
                 temperature_str = "{:.02f}".format(dht_comp.temperature()*9.0/5.0+32)
                 humidity_str = "{:.02f}".format(dht_comp.humidity())
@@ -167,7 +172,7 @@ def application(u_config):
 
             # set RTC.ALARM0 to fire after wakeup_period seconds (waking the device)
             current_time = time.ticks_ms()-1850
-            rtc.alarm(rtc.ALARM0, wakeup_period*1000-current_time)
+            rtc.alarm(rtc.ALARM0, wakeup_period-current_time)
 
             # put the device to sleep
             machine.deepsleep()
@@ -176,16 +181,17 @@ def application(u_config):
 
             # check new version every few minutes
             if time.ticks_ms() > ota_next_check:
-                ota_next_check = time.ticks_add(time.ticks_ms(), OTA_CHECK_PERIOD*1000)
+                gc.collect()
+                ota_next_check = time.ticks_add(time.ticks_ms(), OTA_CHECK_PERIOD)
                 # check new version
                 ota_check_for_new_version (False)
 
             # compute next time to run
-            time_to_reach = time.ticks_add(wakeup_period*1000, start_loop)
+            time_to_reach = time.ticks_add(wakeup_period, start_loop)
+
+            gc.collect()
 
             # while we don't reach that time
-            current_time = time.ticks_ms()
-            while current_time < time_to_reach:
-                current_time = time.ticks_ms()
-
+            time_left = time.ticks_diff(time_to_reach,time.ticks_ms())
+            time.sleep_ms(time_left)
 
