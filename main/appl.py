@@ -19,11 +19,11 @@ TOPIC_HUMIDITY = "/humidity"
 
 MAINSTATE_INIT = {"ST_CNT":"1"}
 
-OTA_CHECK_PERIOD = const(60*1000)  # check every 5 minutes
+OTA_CHECK_PERIOD = const(300*1000)  # check every 5 minutes
 
 class DHT_BME280:
-    def __init__ (self, pin):
-        i2c = machine.I2C(scl=machine.Pin(pin+1), sda=machine.Pin(pin), freq=500000)
+    def __init__ (self, pin_scl, pin_sda):
+        i2c = machine.I2C(scl=machine.Pin(pin_scl), sda=machine.Pin(pin_sda), freq=500000)
         self.bme280 = BME280.BME280(i2c=i2c)
   
     def measure(self):
@@ -61,7 +61,7 @@ def application(u_config):
     wakeup_period = int(u_config['WAKEUP_PERIOD'])*1000
     refresh_counter = int(u_config['REFRESH_COUNTER'])
     # BME280
-    dht_comp = DHT_BME280(int(u_config['DHT_PIN']))    
+    dht_comp = DHT_BME280(18,23)    
 
     if debug_mode_verwrite != 0:
         debug_p = True
