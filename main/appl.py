@@ -119,9 +119,12 @@ def application(u_config):
                 humidity_str = "{:.02f}".format(dht_comp.humidity())
 
                 if u_config['MQTT_CONF']:
-                    # valid measure
-                    c.publish( node_name+TOPIC_TEMPERATURE, temperature_str)
-                    c.publish( node_name+TOPIC_HUMIDITY, humidity_str)
+                    try:
+                        # valid measure
+                        c.publish( u_config['NODE_NAME']+TOPIC_TEMPERATURE, temperature_str)
+                        c.publish( u_config['NODE_NAME']+TOPIC_HUMIDITY, humidity_str)
+                    except:
+                        print("Cannot publish measurements")
 
                     if u_config['DEEPSLEEP_MODE'] == 'ENABLE':
                         c.disconnect()
