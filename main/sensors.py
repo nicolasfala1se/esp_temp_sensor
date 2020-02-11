@@ -17,8 +17,8 @@ class DUMMY_DHT:
         return self.temperature_value
     
 class DHT_BME280:
-    def __init__ (self, pin):
-        i2c = I2C(scl=Pin(pin+1), sda=Pin(pin), freq=500000)
+    def __init__ (self, pin_scl, pin_sda):
+        i2c = I2C(scl=Pin(pin_scl), sda=Pin(pin_sda), freq=500000)
         self.bme280 = BME280.BME280(i2c=i2c)
   
     def measure(self):
@@ -35,7 +35,7 @@ class DHT_BME280:
 
 class temp_sensor:
 
-    def __init__ (self, sensor_type, pin):
+    def __init__ (self, sensor_type, pin, pin_sda=0):
         self.sensor_type = sensor_type
         if sensor_type == "DHT22":
             from dht import DHT22
@@ -45,7 +45,7 @@ class temp_sensor:
             self.dht_comp = DHT11(Pin(pin))
         elif sensor_type == "BME280":
             from main.bme280 import BME280
-            self.dht_comp = DHT_BME280(pin)
+            self.dht_comp = DHT_BME280(pin, pin_sda)
         else:
             self.dht_comp = DUMMY_DHT(0)
 

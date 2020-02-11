@@ -22,6 +22,11 @@ def review_u_config(u_config):
         u_config['DHT_PIN'] = DEFAULT_DHT_PIN
 
     try:
+        bme_pin = int(u_config['BME_PIN'])
+    except:
+        u_config['BME_PIN'] = DEFAULT_DHT_PIN
+
+    try:
         dht_type = u_config['DHT_TYPE']
     except:
         u_config['DHT_TYPE'] = DEFAULT_DHT_TYPE

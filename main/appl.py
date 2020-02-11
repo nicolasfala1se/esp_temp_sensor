@@ -3,6 +3,7 @@ from umqtt.robust import MQTTClient
 from main.ota_updater import OTAUpdater
 from main.utils import wifi_connect, wifi_disconnect, led
 from main.bme280 import BME280
+from main.sensors import temp_sensor
 
 import machine
 import gc
@@ -21,23 +22,6 @@ MAINSTATE_INIT = {"ST_CNT":"1"}
 
 OTA_CHECK_PERIOD = const(300*1000)  # check every 5 minutes
 
-class DHT_BME280:
-    def __init__ (self, pin_scl, pin_sda):
-        i2c = machine.I2C(scl=machine.Pin(pin_scl), sda=machine.Pin(pin_sda), freq=500000)
-        self.bme280 = BME280.BME280(i2c=i2c)
-  
-    def measure(self):
-        self.temperature_value, self.pressure_value, self.humidity_value = self.bme280.read_compensated_data()
-        
-    def humidity(self):
-        return self.humidity_value/1024
-
-    def temperature(self):
-        return self.temperature_value/100
- 
-    def pressure(self):
-        return self.pressure_value/256/100
-
 def no_debug():
     import esp
     # this can be run from the REPL as well
@@ -54,14 +38,15 @@ def application(u_config):
     no_debug()
 
     gc.collect()
-    # next period to check for new software
-    ota_next_check = OTA_CHECK_PERIOD
 
     # convert counters
     wakeup_period = int(u_config['WAKEUP_PERIOD'])*1000
     refresh_counter = int(u_config['REFRESH_COUNTER'])
+     # next period to check for new software
+    ota_next_check = 0
+   
     # BME280
-    dht_comp = DHT_BME280(18,23)    
+    dht_comp = temp_sensor(u_config['DHT_TYPE'], int(u_config['DHT_PIN']), int(u_config['BME_PIN']))   
 
     if debug_mode_verwrite != 0:
         debug_p = True
@@ -134,12 +119,9 @@ def application(u_config):
                 humidity_str = "{:.02f}".format(dht_comp.humidity())
 
                 if u_config['MQTT_CONF']:
-                    try:
-                        # valid measure
-                        c.publish( node_name+TOPIC_TEMPERATURE, temperature_str)
-                        c.publish( node_name+TOPIC_HUMIDITY, humidity_str)
-                    except:
-                        print ("Cannot publish topics")
+                    # valid measure
+                    c.publish( node_name+TOPIC_TEMPERATURE, temperature_str)
+                    c.publish( node_name+TOPIC_HUMIDITY, humidity_str)
 
                     if u_config['DEEPSLEEP_MODE'] == 'ENABLE':
                         c.disconnect()
