@@ -39,4 +39,3 @@ class led:
     def set_off(self):
         if self._pin is not None:
             self._pin.value(0)
-

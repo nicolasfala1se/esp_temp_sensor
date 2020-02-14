@@ -169,7 +169,7 @@ def application(u_config):
                 gc.collect()
                 ota_next_check = time.ticks_add(time.ticks_ms(), OTA_CHECK_PERIOD)
                 # check new version
-                ota_check_for_new_version (False)
+                ota_check_for_new_version (True)
 
             # compute next time to run
             time_to_reach = time.ticks_add(wakeup_period, start_loop)

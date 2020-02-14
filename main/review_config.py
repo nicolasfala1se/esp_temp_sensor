@@ -12,22 +12,22 @@ def review_u_config(u_config):
     ''' This function is called to review and fix the configuration '''
 
     try:
-        led_pin = int(u_config['LED_PIN'])
+        _led_pin = int(u_config['LED_PIN'])
     except:
         u_config['LED_PIN'] = DEFAULT_LED_PIN
 
     try:
-        dht_pin = int(u_config['DHT_PIN'])
+        _dht_pin = int(u_config['DHT_PIN'])
     except:
         u_config['DHT_PIN'] = DEFAULT_DHT_PIN
 
     try:
-        bme_pin = int(u_config['BME_PIN'])
+        _bme_pin = int(u_config['BME_PIN'])
     except:
         u_config['BME_PIN'] = DEFAULT_DHT_PIN
 
     try:
-        dht_type = u_config['DHT_TYPE']
+        _dht_type = u_config['DHT_TYPE']
     except:
         u_config['DHT_TYPE'] = DEFAULT_DHT_TYPE
 
@@ -35,28 +35,28 @@ def review_u_config(u_config):
         u_config['DHT_TYPE'] = "DUMMY_DHT"
    
     try:
-        refresh_counter = int(u_config['REFRESH_COUNTER'])
+        _refresh_counter = int(u_config['REFRESH_COUNTER'])
     except:
         u_config['REFRESH_COUNTER']  = DEFAULT_REFRESH_COUNTER
 
     try:
-        wakeup_period = int(u_config['WAKEUP_PERIOD'])
+        _wakeup_period = int(u_config['WAKEUP_PERIOD'])
     except:
         u_config['WAKEUP_PERIOD']  = DEFAULT_WAKEUP_PERIOD
         
     try:
-        deepsleep_mode = u_config['DEEPSLEEP_MODE']
+        _deepsleep_mode = u_config['DEEPSLEEP_MODE']
     except:
         u_config['DEEPSLEEP_MODE'] = DEFAULT_DEEPSLEEP_MODE
 
     try:
-        node_name = u_config['NODE_NAME']
+        _node_name = u_config['NODE_NAME']
     except:
         u_config['NODE_NAME'] = DEFAULT_NODE_NAME
 
     try:
-        wifi_ssid = u_config['WIFI_SSID']
-        wifi_pass = u_config['WIFI_PASS']        
+        _wifi_ssid = u_config['WIFI_SSID']
+        _wifi_pass = u_config['WIFI_PASS']        
     except:
         print("No valid WIFI configuration")
         u_config['WIFI_CONF'] = False
@@ -64,7 +64,7 @@ def review_u_config(u_config):
         u_config['WIFI_CONF'] = True 
 
     try:
-        mqtt_server = u_config['MQTT_SERVER']
+        _mqtt_server = u_config['MQTT_SERVER']
     except:
         print("No valid MQTT server")
         u_config['MQTT_CONF'] = False
@@ -72,7 +72,7 @@ def review_u_config(u_config):
         u_config['MQTT_CONF'] = True
 
     try:
-        debug_mode = u_config['DEBUG_MODE']
+        _debug_mode = u_config['DEBUG_MODE']
     except:
         u_config['DEBUG_MODE'] = False
 
