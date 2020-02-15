@@ -1,7 +1,7 @@
 # MQTT temperature monitor.
-from umqtt.robust import MQTTClient
+from main.umqtt.robust import MQTTClient
 from main.ota_updater import OTAUpdater
-from main.utils import wifi_connect, wifi_disconnect, led
+from main.utils import wifi_connect, wifi_disconnect, led, GITHUB_HTTPS_ADDRESS
 from main.bme280 import BME280
 from main.sensors import temp_sensor
 
@@ -28,7 +28,7 @@ def no_debug():
     esp.osdebug(None)
 
 def ota_check_for_new_version ( reboot_flag=False ):
-    o=OTAUpdater('https://github.com/nicolasfala1se/esp_temp_sensor')
+    o=OTAUpdater(GITHUB_HTTPS_ADDRESS)
     new_version = o.check_for_update_to_install_during_next_reboot()
     if new_version and reboot_flag:
         print('rebooting...')

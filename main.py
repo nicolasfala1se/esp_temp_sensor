@@ -2,12 +2,12 @@
 import gc
 from main.ota_updater import OTAUpdater
 from main.appl import application
-from main.utils import wifi_connect
+from main.utils import wifi_connect, GITHUB_HTTPS_ADDRESS
 from main.review_config import collect_u_config
 
 
 def download_and_install_update_if_available():
-    o = OTAUpdater('https://github.com/nicolasfala1se/esp_temp_sensor')
+    o = OTAUpdater(GITHUB_HTTPS_ADDRESS)
     o.download_and_install_update_if_available()
 
 def boot():
