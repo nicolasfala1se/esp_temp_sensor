@@ -12,9 +12,9 @@ default_user_config = {
 }
 
 default_hardware_config = {
-    "DHT_PIN": "18",    # scl for bme280
-    "BME_PIN": "23",    # sda for bme280
+    "DHT_PIN": "5",    # scl for bme280
+    "BME_PIN": "0",    # sda for bme280
     "LED_PIN": "0",
-    "DHT_TYPE": "BME280",
+    "DHT_TYPE": "DHT22",
     "DEEPSLEEP_CAP": "DISABLE"
 }
