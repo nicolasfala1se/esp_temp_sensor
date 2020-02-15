@@ -32,7 +32,9 @@ def ota_check_for_new_version ( reboot_flag=False ):
     new_version = o.check_for_update_to_install_during_next_reboot()
     if new_version and reboot_flag:
         print('rebooting...')
-        machine.reset() 
+        tim = machine.Timer(-1)
+        tim.init(period=5000, mode=machine.Timer.ONE_SHOT, callback=lambda t:machine.reset())
+        
 
 def application(u_config): 
     no_debug()
