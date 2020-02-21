@@ -8,32 +8,10 @@ DEFAULT_LED_PIN = "0"
 DEFAULT_DHT_TYPE = "DHT22"
 DEFAULT_DEEPSLEEP_MODE = "DISABLE"
 DEFAULT_LCD1602 = "0"
+DEFAULT_NODE_NAME = "None"
 
 def review_u_config(u_config):
     ''' This function is called to review and fix the configuration '''
-
-    try:
-        _led_pin = int(u_config['LED_PIN'])
-    except:
-        u_config['LED_PIN'] = DEFAULT_LED_PIN
-
-    try:
-        _dht_pin = int(u_config['DHT_PIN'])
-    except:
-        u_config['DHT_PIN'] = DEFAULT_DHT_PIN
-
-    try:
-        _bme_pin = int(u_config['BME_PIN'])
-    except:
-        u_config['BME_PIN'] = DEFAULT_DHT_PIN
-
-    try:
-        _dht_type = u_config['DHT_TYPE']
-    except:
-        u_config['DHT_TYPE'] = DEFAULT_DHT_TYPE
-
-    if u_config['DHT_PIN'] == DEFAULT_DHT_PIN:
-        u_config['DHT_TYPE'] = "DUMMY_DHT"
 
     try:
         _wakeup_period = int(u_config['WAKEUP_PERIOD'])
@@ -67,18 +45,10 @@ def review_u_config(u_config):
     except:
         u_config['DEBUG_MODE'] = False
 
-    try:
-        _lcd = u_config['LCD1602']
-    except:
-        u_config['LCD1602'] = DEFAULT_LCD1602
-
 
 def collect_u_config():
-    config_jsonfile = jsonfile("/h_config.json", user_config.default_hardware_config)
-    u_config = config_jsonfile.get_data()
-
     config_jsonfile = jsonfile("/config.json", user_config.default_user_config)
-    u_config.update( config_jsonfile.get_data() )
+    u_config = config_jsonfile.get_data()
 
     review_u_config(u_config)
 
