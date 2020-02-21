@@ -16,7 +16,7 @@ def boot():
     if u_config['WIFI_CONF']:
         # wifi connection
         wifi_connect(u_config['WIFI_SSID'], u_config['WIFI_PASS'])
-        download_and_install_update_if_available()
+        #download_and_install_update_if_available()
     
     gc.collect()
     # execute application
