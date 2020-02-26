@@ -1,13 +1,14 @@
 # MQTT temperature monitor.
-from main.umqtt.robust import MQTTClient
-from main.ota_updater import OTAUpdater
+from umqtt.robust import MQTTClient
+#from main.ota_updater import OTAUpdater
 from main.utils import wifi_connect, wifi_disconnect, led, GITHUB_HTTPS_ADDRESS
 from main.bme280 import BME280
 from main.rtos import rtos, rtos_task
 from main.schedule_file import schedule_table
-from main.i2c_lcd.esp8266_i2c_lcd import I2cLcd
+from main.oled_screen import oled_screen
+from main.ntptime import settime
 
-import machine, time, ssd1306, micropython
+import machine, time, micropython, framebuf, utime, network
 from ubinascii import hexlify
 import ujson as json
 
@@ -20,17 +21,11 @@ CLIENT_ID = b"ESP_"+hexlify(machine.unique_id())
 TOPIC_TEMPERATURE = "/temperature"
 TOPIC_HUMIDITY = "/humidity"
 
-# The PCF8574 has a jumper selectable address: 0x20 - 0x27
-DEFAULT_LCD_I2C_ADDR = 0x3F
-
 I2C_SCL_PIN_NUMBER = 18
 I2C_SDA_PIN_NUMBER = 5
 
 DEFAULT_OLED_I2C_ADDR = 60  #0x3c
 DEFAULT_BME280_I2C_ADDR  = 118 #0x76
-hSize       = 64  # Hauteur ecran en pixels | display heigh in pixels
-wSize       = 128 # Largeur ecran en pixels | display width in pixels
-
 
 def no_debug():
     import esp
@@ -46,27 +41,27 @@ class task1 (rtos_task):
         self.pin.value(0)
         print("Init application task")
 
+        self.wifi_valid, self.mqtt_valid = [False, False]
+
         # configure led pin
         self.l_pin = led(2)
 
-        self.oledIsConnected, self.bmeIsConnected, self.lcdIsConnected = [False, False, False]
+        self.oledIsConnected, self.bmeIsConnected = [False, False]
         # init ic2 object
         i2c = machine.I2C(scl=machine.Pin(I2C_SCL_PIN_NUMBER), sda=machine.Pin(I2C_SDA_PIN_NUMBER),freq=400000)
         # Scan i2c bus and check if BME2 and OLDE display are connected
-        print('Scan i2c bus...')
+        #print('Scan i2c bus...')
         devices = i2c.scan()
         if len(devices) == 0:
             print("No i2c device !")
         else:
-            print('i2c devices found:',len(devices))
+            #print('i2c devices found:',len(devices))
             for device in devices: 
                 if device == DEFAULT_OLED_I2C_ADDR:
                     self.oledIsConnected = True
                 if device == DEFAULT_BME280_I2C_ADDR:
                     self.bmeIsConnected = True  
-                if device == DEFAULT_LCD_I2C_ADDR:
-                    self.lcdIsConnected = True
-                print ('Adr: ',device)
+                #print ('Adr: ',device)
         # BME280
         if self.bmeIsConnected:
             try:
@@ -77,28 +72,6 @@ class task1 (rtos_task):
             else:
                 # discard first measure to switch sensor in FORCED MODE
                 self.bme280.read_compensated_data()
-        # LCD screen
-        if self.lcdIsConnected:
-            self.lcd = I2cLcd(i2c, DEFAULT_LCD_I2C_ADDR, 2, 16)
-            self.lcd.putstr("Starting...\nTakes a minute")
-            self.backlight_on=1      
-
-            self.presence_pin = machine.Pin(39, machine.Pin.IN, pull=machine.Pin.PULL_UP)
-            self.presence_timer = machine.Timer(-1)
-            self.presence_timer.init(mode=machine.Timer.ONE_SHOT, period=self.PRESENCE_TIMEOUT, callback=lambda t:micropython.schedule(self.backlight_timeout, t))
-            self.presence_pin.irq(lambda p:micropython.schedule(self.backlight_restart, p), trigger=machine.Pin.IRQ_RISING)
-        # OLED screen
-        if self.oledIsConnected:
-            self.oled = ssd1306.SSD1306_I2C(wSize, hSize, i2c, DEFAULT_OLED_I2C_ADDR)
-            self.oled.fill(0)
-            if self.bmeIsConnected:
-                self.oled.text("Starting...\nTakes a minute")
-                self.oled.show()
-            else:     
-                self.oled.text("No BME\nTell Daddy", 0, 0)
-                self.oled.show()
-        else:
-            print('! No i2c display')
 
         if debug_mode_verwrite != 0:
             self.debug_p = True
@@ -111,24 +84,27 @@ class task1 (rtos_task):
         if param1['WIFI_CONF']:
             # wifi connection
             wifi_connect(param1['WIFI_SSID'], param1['WIFI_PASS'],verbose=True)
+            self.wifi_valid=True
 
-        if param1['MQTT_CONF']:
-            try:
-                # create MQTT connection
-                self.c = MQTTClient( CLIENT_ID, param1['MQTT_SERVER'] )
-                # mqtt connection
-                self.c.connect()
-            except:
-                print ("unable to connect to server")
-                if self.lcdIsConnected:
-                    self.lcd.clear()
-                    self.lcd.move_to(0, 0)
-                    self.lcd.putstr("No connection w/ MQTT server")
-                if self.oledIsConnected:
-                    self.oled.fill(0)
-                    self.oled.text("No connect to MQTT server, tell Daddy", 0, 20)
-                    self.oled.show()
-#
+            if param1['MQTT_CONF']:
+                try:
+                    # create MQTT connection
+                    self.c = MQTTClient( CLIENT_ID, param1['MQTT_SERVER'] )
+                    # mqtt connection
+                    self.c.connect()
+                except:
+                    print ("unable to connect to server")
+                    self.mqtt_valid = False
+                else:
+                    self.mqtt_valid = True
+            
+        # OLED screen
+        if self.oledIsConnected:
+            self.oled = oled_screen(i2c, DEFAULT_OLED_I2C_ADDR, unit=param1['UNIT'])
+            self.oled.update_screen(self.wifi_valid,self.mqtt_valid, utime.localtime(), None, None )
+        else:
+            print('! No i2c display')
+
 # Task body
 #
     def task_body(self, param1):
@@ -149,61 +125,41 @@ class task1 (rtos_task):
                     dht_measured=1
 
             if dht_measured == 1:
-                temperature_str = "{:.02f}".format(t/100*9.0/5.0+32)
+                if param1['UNIT'] == 'F':
+                    t = t/100*9.0/5.0+32
+                else:
+                    t = t/100
+
+                temperature_str = "{:.02f}".format(t)
                 humidity_str = "{:.02f}".format(h/1024)
 
-                if self.lcdIsConnected:
-                    temperature_lcd = "{:.0f}".format(t/100*9.0/5.0+32)
-                    humidity_lcd = "{:.0f}".format(h/1024)
-                    self.lcd.clear()
-                    self.lcd.move_to(0, 0)
-                    self.lcd.putstr("Temperature: %sFHumidity   : %s%%" % (temperature_lcd,humidity_lcd))
+                # verify wifi connection
+                sta_if = network.WLAN(network.STA_IF)
+                self.wifi_valid = sta_if.isconnected()
 
-                if self.oledIsConnected:
-                    self.oled.fill(0)
-                    if self.bmeIsConnected:
-                        self.oled.text("Temp. "+temperature_str+"F", 0, 0)
-                        self.oled.text("Hum. "+humidity_str+"%%", 0, 10)
-                        self.oled.show()
-                    else:     
-                        self.oled.text("No BME\nTell Daddy", 0, 0)
-                        self.oled.show()
-
-                if param1['MQTT_CONF']:
-                    try:
-                        # valid measure
-                        self.c.publish( param1['NODE_NAME']+TOPIC_TEMPERATURE, temperature_str)
-                        self.c.publish( param1['NODE_NAME']+TOPIC_HUMIDITY, humidity_str)
-                    except:
-                        print("Cannot publish measurements")
-                    
+                if self.wifi_valid:
+                    l_mqtt_valid = self.mqtt_valid
+                    if l_mqtt_valid:
+                        try:
+                            # valid measure
+                            self.c.publish( param1['NODE_NAME']+TOPIC_TEMPERATURE, temperature_str)
+                            self.c.publish( param1['NODE_NAME']+TOPIC_HUMIDITY, humidity_str)
+                        except:
+                            print("Cannot publish measurements")
+                            l_mqtt_valid = False
+                else:
+                    l_mqtt_valid = False        
+            
                 if self.debug_p: print("Temperature:", temperature_str)
                 if self.debug_p: print("Humidity:", humidity_str)
+
+                if self.oledIsConnected:
+                    self.oled.update_screen(self.wifi_valid, l_mqtt_valid, utime.localtime(), t, h/1024, "Call Daddy...")
                 
             self.l_pin.set_off()
             self.pin.value(0)
 
             yield None
-
-    def presence_irq(self,pin):
-        #print (self.presence_pin.value())
-        micropython.schedule(self.backlight_restart, pin)
-
-    def backlight_restart(self, unused):
-        #print (self.presence_pin.value())
-        if self.backlight_on == 0:
-            self.backlight_on = 1
-            self.lcd.backlight_on() 
-        else:
-            # delete before restarting the timer
-            self.presence_timer.deinit()
-        # start the timer
-        self.presence_timer.init(mode=machine.Timer.ONE_SHOT, period=self.PRESENCE_TIMEOUT, callback=lambda t:micropython.schedule(self.backlight_timeout, t))
-
-    def backlight_timeout(self, unused):
-        self.backlight_on = 0
-        self.lcd.backlight_off()
-       
 
 class updater_task(rtos_task):
     """ implementation of the updater task """
@@ -216,8 +172,20 @@ class updater_task(rtos_task):
             print('Checking for update...')
             yield None
 
+def load_application_screen():
+    # load screen logo
+    i2c = machine.I2C(scl=machine.Pin(I2C_SCL_PIN_NUMBER), sda=machine.Pin(I2C_SDA_PIN_NUMBER),freq=400000)
+    devices = i2c.scan()
+    if len(devices) != 0:
+        if DEFAULT_OLED_I2C_ADDR in devices: 
+            oled = oled_screen(i2c, DEFAULT_OLED_I2C_ADDR)
+            oled.load_logo()
+
 def application(u_config): 
     no_debug()
+
+    # configure rtc with ntp time
+    settime(int(u_config['UTC_OFS'])*60*60)
 
     # convert counters
     wakeup_period = int(u_config['WAKEUP_PERIOD'])*1000
@@ -225,9 +193,13 @@ def application(u_config):
     t2=updater_task(priority=1)
     task_list = [t1,t2]
     r = rtos(s_table=schedule_table, t_list=task_list )   # configure OS wih static configuration
+    # timer 1 used to scheduled the first execution
+    tim = machine.Timer(1)
+    tim.init(period=2000, mode=machine.Timer.ONE_SHOT, callback=lambda t:r.scheduler_tick_call())
     # timer 0 used for rtos schedule
     tim = machine.Timer(0)
     tim.init(period=wakeup_period, mode=machine.Timer.PERIODIC, callback=lambda t:r.scheduler_tick_call())
+
 
     #print(r.task_list)
     try:

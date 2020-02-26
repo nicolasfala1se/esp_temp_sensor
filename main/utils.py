@@ -2,6 +2,8 @@ import network
 from time import sleep_ms
 from machine import Pin
 
+
+
 GITHUB_HTTPS_ADDRESS = "https://github.com/nicolasfala1se/esp_temp_sensor"
 
 def wifi_connect( wifi_ssid, wifi_password, verbose=False):
@@ -15,6 +17,7 @@ def wifi_connect( wifi_ssid, wifi_password, verbose=False):
             sleep_ms(200)
         if verbose:
             print('network config:', sta_if.ifconfig())
+            print('network status:', sta_if.status())
     else:
         if verbose:
             print("Already connected to network")

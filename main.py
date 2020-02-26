@@ -1,7 +1,7 @@
 # main.py file
 import gc
 from main.ota_updater import OTAUpdater
-from main.appl import application
+from main.appl import application, load_application_screen
 from main.utils import wifi_connect, GITHUB_HTTPS_ADDRESS
 from main.review_config import collect_u_config
 
@@ -11,11 +11,14 @@ def download_and_install_update_if_available():
     o.download_and_install_update_if_available()
 
 def boot():
+    # screen logo
+    load_application_screen()
+
     u_config = collect_u_config()
     # if wifi config seems ok
     if u_config['WIFI_CONF']:
         # wifi connection
-        wifi_connect(u_config['WIFI_SSID'], u_config['WIFI_PASS'])
+        wifi_connect(u_config['WIFI_SSID'], u_config['WIFI_PASS'], verbose=True)
         #download_and_install_update_if_available()
     
     gc.collect()

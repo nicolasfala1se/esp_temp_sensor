@@ -5,10 +5,12 @@ DEFAULT_WAKEUP_PERIOD = "30"
 DEFAULT_REFRESH_COUNTER = "10"
 DEFAULT_DHT_PIN = "0"
 DEFAULT_LED_PIN = "0"
-DEFAULT_DHT_TYPE = "DHT22"
+DEFAULT_DHT_TYPE = "BME280"
 DEFAULT_DEEPSLEEP_MODE = "DISABLE"
 DEFAULT_LCD1602 = "0"
 DEFAULT_NODE_NAME = "None"
+DEFAULT_UTC_OFS = "0"
+DEFAULT_UNIT = "C"  # unit = "C" or "F"
 
 def review_u_config(u_config):
     ''' This function is called to review and fix the configuration '''
@@ -44,6 +46,16 @@ def review_u_config(u_config):
         _debug_mode = u_config['DEBUG_MODE']
     except:
         u_config['DEBUG_MODE'] = False
+
+    try:
+        _debug_mode = u_config['UTC_OFS']
+    except:
+        u_config['UTC_OFS'] = DEFAULT_UTC_OFS
+
+    try:
+        _debug_mode = u_config['UNIT']
+    except:
+        u_config['UNIT'] = DEFAULT_UNIT
 
 
 def collect_u_config():
